@@ -3,27 +3,27 @@
   "formatVersion": 1,
   "modelKey": "deit-small-patch16-224",
   "modelId": "facebook/deit-small-patch16-224",
-  "revision": "unpinned",
+  "revision": "164deee347853469b97442b3817f22eece80c7e3",
   "files": [
     {
       "path": "README.md",
       "bytes": 7287,
-      "sha256": null
+      "sha256": "83c69342b4dd6aa479a555a346e3681bf4c18f31ce7147525b62adc29de32351"
     },
     {
       "path": "config.json",
       "bytes": 69593,
-      "sha256": null
+      "sha256": "c1a9b0aa133d5bb35a118f55310c5a0bd4e0c8d478dbef2bd01532b900d4790c"
     },
     {
       "path": "preprocessor_config.json",
       "bytes": 160,
-      "sha256": null
+      "sha256": "90d1ae427c27d2b9dcb01f6a62ba96aa67aac2de1697c59cd212055b5035c4a2"
     },
     {
       "path": "pytorch_model.bin",
       "bytes": 88283631,
-      "sha256": null
+      "sha256": "7eadf70de01e439569e1bbba8b5ef233b4bf70f25a98d9b33460095672bce38c"
     }
   ],
   "totalBytes": 88360671,
@@ -31,7 +31,7 @@
     {
       "path": "tf_model.h5",
       "bytes": 88505432,
-      "sha256": null,
+      "sha256": "43160787f644b779af11e010a117a1b074edfb1bc7cfc1454d2a24f6dc7a1051",
       "note": "hosted TensorFlow checkpoint; not staged, not loaded; its Hub LFS SHA-256 is recorded for provenance only"
     }
   ]

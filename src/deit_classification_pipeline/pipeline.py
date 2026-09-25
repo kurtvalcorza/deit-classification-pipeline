@@ -29,7 +29,7 @@ from PIL import Image
 from .data import validate_dataset
 
 MODEL_ID = "facebook/deit-small-patch16-224"
-MODEL_REVISION = "unpinned"
+MODEL_REVISION = "164deee347853469b97442b3817f22eece80c7e3"
 MODEL_LICENSE = "apache-2.0"
 MODEL_KEY = "deit-small-patch16-224"
 DEFAULT_WEIGHTS_DIR = Path(__file__).resolve().parents[2] / "weights" / MODEL_KEY
