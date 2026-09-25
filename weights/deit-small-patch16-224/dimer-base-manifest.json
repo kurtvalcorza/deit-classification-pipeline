@@ -1,0 +1,38 @@
+{
+  "format": "dimer_hf_snapshot",
+  "formatVersion": 1,
+  "modelKey": "deit-small-patch16-224",
+  "modelId": "facebook/deit-small-patch16-224",
+  "revision": "unpinned",
+  "files": [
+    {
+      "path": "README.md",
+      "bytes": 7287,
+      "sha256": null
+    },
+    {
+      "path": "config.json",
+      "bytes": 69593,
+      "sha256": null
+    },
+    {
+      "path": "preprocessor_config.json",
+      "bytes": 160,
+      "sha256": null
+    },
+    {
+      "path": "pytorch_model.bin",
+      "bytes": 88283631,
+      "sha256": null
+    }
+  ],
+  "totalBytes": 88360671,
+  "referenceFiles": [
+    {
+      "path": "tf_model.h5",
+      "bytes": 88505432,
+      "sha256": null,
+      "note": "hosted TensorFlow checkpoint; not staged, not loaded; its Hub LFS SHA-256 is recorded for provenance only"
+    }
+  ]
+}
