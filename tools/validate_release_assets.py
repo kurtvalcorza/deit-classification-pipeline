@@ -32,8 +32,11 @@ UNPINNED = "unpinned"
 UNPINNED_PHRASE = "not yet pinned"
 # Extra 40-hex commits the docs may legitimately cite (none yet).
 KNOWN_SHAS: frozenset[str] = frozenset(
-    ("bb5a7aabf1d14d2d1e3e49d0d8f917bda3622f75",)
-)  # Cleanlab/cifar-10-subset sample commit
+    (
+        "bb5a7aabf1d14d2d1e3e49d0d8f917bda3622f75",  # Cleanlab/cifar-10-subset sample commit
+        "ab5715372db8c6cad5740714b2216d55aeae052e",  # facebookresearch/deit commit defining the eval transform
+    )
+)
 
 # NOTEBOOK_SPEC 2.1 §10.3: BYOD is gated off by default so the sample path runs top-to-bottom.
 BYOD_GATES = ("USE_BYOD_IMAGE", "USE_BYOD_DATASET")
