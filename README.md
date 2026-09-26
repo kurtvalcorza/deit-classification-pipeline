@@ -2,7 +2,7 @@
 
 DIMER pipeline for **DeiT-Small** (`facebook/deit-small-patch16-224`), a data-efficient Vision Transformer trained on ImageNet-1k. The pipeline loads the checkpoint only from a digest-verified local snapshot, returns top-k softmax scores over the ImageNet-1k classes, and adds a bounded fine-tuning workflow that replaces the head for a new set of classes, compares it with majority-class and zero-shot baselines, and exports a SafeTensors adapter.
 
-> **The upstream snapshot is pinned** to Hub commit `164deee347853469b97442b3817f22eece80c7e3` (pinned 2026-09-25). The manifest records every file's byte size and SHA-256, and each LFS digest matched the Hub's record. No execution with the pinned weights is recorded yet (see [Release status](#release-status)).
+> **The upstream snapshot is pinned** to Hub commit `164deee347853469b97442b3817f22eece80c7e3` (pinned 2026-09-25). The manifest records every file's byte size and SHA-256, and each LFS digest matched the Hub's record. Default-path execution recorded on 2026-09-26 (Kaggle T4); REL12 BYOD exercise pending before promotion (see [Release status](#release-status)).
 
 ## Upstream alignment
 
@@ -69,7 +69,7 @@ weights/deit-small-patch16-224/
 
 ## Release status
 
-**Candidate.** The snapshot is pinned (`164deee`), but no execution with the pinned weights is recorded. Static checks, unit tests and the small-model test do not constitute notebook execution evidence; `docs/release-verification.md` defines the release gate.
+**Candidate.** The snapshot is pinned (`164deee`). Default-path execution recorded on 2026-09-26 (Kaggle T4): the exact notebook blob `1a0317f0db42` (commit `4386e6d`) ran top-to-bottom with both BYOD branches off. On one seeded split of 60 held-out CIFAR-10 thumbnails, accuracy was 1.000 for the fine-tuned head and 0.983 for the zero-shot ImageNet mapping (majority baseline 0.500, untrained head 0.483), a one-image difference; 46 of the 60 held-out images have a darkened/original counterpart in the training split, so the score is not evidence of generalisation; one runtime. REL12 BYOD exercise pending before promotion: release step 7 has not been run. Static checks, unit tests and the small-model test do not constitute notebook execution evidence; `docs/release-verification.md` defines the release gate.
 
 ## Documentation
 
