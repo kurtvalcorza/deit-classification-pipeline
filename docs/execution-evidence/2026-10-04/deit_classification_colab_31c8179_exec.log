@@ -1,0 +1,223 @@
+[colab] Parsing notebook '/home/kurt/colab-runs/deit-classification-pipeline-31c8179-1e8474/deit_classification_colab_31c8179_colab-cli-t4.ipynb'...
+[colab] Executing cell 1/16 - Infrastructure: install the locked runtime into an isolated environment...
+{'isolated_environment': '/content/dimer_isolated_env', 'isolated_python': '3.12.12', 'kernel_python': '3.13.15', 'locked_packages': 46, 'setup_seconds': 51}
+[colab] Executing cell 2/16 - Route the remaining cells to the isolated environment...
+Every later code cell now runs in /content/dimer_isolated_env/bin/python (pid 837).
+[colab] Executing cell 3/16 - deit_classification-07...
+{'notebook_source': {'repository': 'deit-classification-pipeline', 'repository_revision': 'cf8aa0da5a5f786666483c617d1a8430473aa4ff', 'embedded_module': 'src/deit_classification_pipeline/pipeline.py', 'embedded_modules': ['src/deit_classification_pipeline/data.py', 'src/deit_classification_pipeline/pipeline.py'], 'module_sha256': '091ed48a7671a394b10408b90c36c203b9adb4c31871d520cb5ad7939524a470', 'generator': 'build_notebook.py/2.1', 'notebook_spec': '2.2'}, 'python': '3.12.12', 'torch': '2.14.0+cu130', 'torchvision': '0.29.0+cu130', 'transformers': '4.57.6', 'numpy': '2.5.3', 'PIL': '11.3.0', 'cuda': True}
+[colab] Executing cell 4/16 - deit_classification-09...
+[colab] Executing cell 5/16 - deit_classification-11...
+[colab] Executing cell 6/16 - deit_classification-13...
+{'model_id': 'facebook/deit-small-patch16-224', 'revision': '164deee347853469b97442b3817f22eece80c7e3', 'license': 'apache-2.0', 'files': 4, 'total_bytes': 88360671}
+{'weights_dir': '/content/weights/deit-small-patch16-224', 'fetched': ['README.md', 'config.json', 'preprocessor_config.json', 'pytorch_model.bin']}
+{'verified_files': 4, 'revision': '164deee347853469b97442b3817f22eece80c7e3'}
+{'device': 'cuda:0', 'source': '/content/weights/deit-small-patch16-224'}
+[colab] Executing cell 7/16 - deit_classification-15...
+{'dataset_id': 'Cleanlab/cifar-10-subset', 'revision': 'bb5a7aabf1d14d2d1e3e49d0d8f917bda3622f75', 'license': 'mit', 'bytes': 986707, 'sha256': '66f90a4f87d865e8eb653b62f10e754684075a32314177de76832349d4b1fb19', 'fetched': True}
+{
+  "n_records": 400,
+  "class_names": [
+    "frog",
+    "truck"
+  ],
+  "images_per_class": {
+    "frog": 200,
+    "truck": 200
+  },
+  "image_side_px": [
+    32,
+    32
+  ],
+  "duplicate_groups": 100,
+  "epochs": 5,
+  "findings": [
+    "100 group(s) of pixel-identical images, e.g. ['CIFAR-10-subset/darkened_images/truck/image_0.png', 'CIFAR-10-subset/original_images/truck/image_0.png']"
+  ],
+  "verdict": "accepted"
+}
+{
+  "records": 400,
+  "groups": 200,
+  "groups_with_duplicates": 200,
+  "records_in_duplicate_groups": 400,
+  "exact_copies": 100,
+  "near_duplicate_links": 100,
+  "mixed_label_groups": 0,
+  "mixed_label_examples": [],
+  "method": "pixel digest, or 16x16 grayscale correlation >= 0.95"
+}
+<PIL.Image.Image image mode=RGB size=512x128 at 0x79A4D40A5160>
+
+[Image saved to: /tmp/tmp0cqw9hbr.png]
+[colab] Executing cell 8/16 - deit_classification-17...
+{
+  "train": 280,
+  "held_out": 60,
+  "unseen": 60,
+  "train_majority": "frog",
+  "duplicates_across_splits": {
+    "held_out": {
+      "records": 60,
+      "pixel_copy_in_reference": 0,
+      "near_duplicate_in_reference": 0
+    },
+    "unseen": {
+      "records": 60,
+      "pixel_copy_in_reference": 0,
+      "near_duplicate_in_reference": 0
+    },
+    "unseen_vs_held_out": {
+      "records": 60,
+      "pixel_copy_in_reference": 0,
+      "near_duplicate_in_reference": 0
+    }
+  }
+}
+frog -> [('fox squirrel', 0.387), ('tailed frog', 0.197), ('frilled lizard', 0.028), ('wood rabbit', 0.017), ('marmoset', 0.007)]
+frog -> [('fox squirrel', 0.571), ('tailed frog', 0.056), ('marmoset', 0.039), ('frilled lizard', 0.015), ('wood rabbit', 0.013)]
+truck -> [('revolver', 0.306), ('moving van', 0.161), ('snowplow', 0.054), ('mobile home', 0.049), ('boathouse', 0.019)]
+truck -> [('revolver', 0.306), ('moving van', 0.161), ('snowplow', 0.054), ('mobile home', 0.049), ('boathouse', 0.019)]
+{'verdict': 'sample-sanity', 'metrics': [(1, 0.0), (5, 1.0)]}
+{
+  "accuracy": 0.9833333333333333,
+  "balanced_accuracy": 0.9833333333333334,
+  "majority_baseline_accuracy": 0.5,
+  "mean_group_mass": 0.4399060904979706,
+  "per_class_recall": {
+    "frog": 0.9666666666666667,
+    "truck": 1.0
+  }
+}
+[colab] Executing cell 9/16 - deit_classification-19...
+{
+  "blank": [
+    [
+      "face powder",
+      0.006
+    ],
+    [
+      "hook",
+      0.005
+    ],
+    [
+      "rule",
+      0.005
+    ]
+  ],
+  "noise": [
+    [
+      "kite",
+      0.083
+    ],
+    [
+      "bald eagle",
+      0.042
+    ],
+    [
+      "nematode",
+      0.029
+    ]
+  ]
+}
+[colab] Executing cell 10/16 - deit_classification-21...
+{'class_names': ['frog', 'truck'], 'reinitialised': ['classifier.'], 'device': 'cuda:0'}
+{'accuracy': 0.6, 'balanced_accuracy': 0.6, 'per_class_recall': {'frog': 0.6666666666666666, 'truck': 0.5333333333333333}}
+[colab] Executing cell 11/16 - deit_classification-23...
+epoch 1/5  loss 0.1379
+epoch 2/5  loss 0.0681
+epoch 3/5  loss 0.0062
+epoch 4/5  loss 0.0003
+epoch 5/5  loss 0.0003
+{
+  "freeze_backbone": false,
+  "trainable_parameters": 21666434,
+  "total_parameters": 21666434,
+  "epochs": 5,
+  "batch_size": 16,
+  "learning_rate": 0.0001,
+  "optimizer": "AdamW",
+  "augmentation": "none (evaluation transform)",
+  "precision": "float32",
+  "device": "cuda:0",
+  "train_seconds": 15.9
+}
+[colab] Executing cell 12/16 - deit_classification-25...
+method                         correct  accuracy      95% Wilson  balanced
+majority class                   30/60     0.500  [0.377, 0.623]     0.500
+zero-shot ImageNet mapping       59/60     0.983  [0.911, 0.997]     0.983
+untrained two-class head         36/60     0.600  [0.474, 0.714]     0.600
+fine-tuned                       60/60     1.000  [0.940, 1.000]     1.000
+confusion (rows true, columns predicted): {'labels': ['frog', 'truck'], 'rows_true_cols_predicted': [[30, 0], [0, 30]]}
+reading: at ceiling: the zero-shot mapping already answers 59/60 held-out images correctly, so the fine-tune (60/60) can at best tie it; this run measures no fine-tuning gain
+{'run': 0, 'freeze_backbone': False, 'per_class': 200, 'epochs': 5, 'learning_rate': 0.0001, 'trainable_parameters': 21666434, 'held_out_n': 60, 'zero_shot_accuracy': 0.9833, 'fine_tuned_accuracy': 1.0, 'final_loss': 0.0003, 'train_seconds': 15.9}
+[colab] Executing cell 13/16 - deit_classification-27...
+{'correct': 60, 'n': 60, 'accuracy': 1.0, 'wilson_95': [0.9398, 1.0], 'balanced_accuracy': 1.0}
+[
+  {
+    "id": "CIFAR-10-subset/darkened_images/frog/image_15.png",
+    "truth": "frog",
+    "predicted": "frog",
+    "score": 0.9999
+  },
+  {
+    "id": "CIFAR-10-subset/original_images/frog/image_15.png",
+    "truth": "frog",
+    "predicted": "frog",
+    "score": 0.9996
+  },
+  {
+    "id": "CIFAR-10-subset/darkened_images/frog/image_75.png",
+    "truth": "frog",
+    "predicted": "frog",
+    "score": 0.9993
+  },
+  {
+    "id": "CIFAR-10-subset/original_images/frog/image_75.png",
+    "truth": "frog",
+    "predicted": "frog",
+    "score": 0.9981
+  },
+  {
+    "id": "CIFAR-10-subset/darkened_images/frog/image_58.png",
+    "truth": "frog",
+    "predicted": "frog",
+    "score": 0.9999
+  },
+  {
+    "id": "CIFAR-10-subset/original_images/frog/image_58.png",
+    "truth": "frog",
+    "predicted": "frog",
+    "score": 0.9998
+  }
+]
+{'blank': [('truck', 0.542), ('frog', 0.458)], 'noise': [('frog', 0.851), ('truck', 0.149)]}
+[colab] Executing cell 14/16 - deit_classification-29...
+{
+  "path": "outputs/deit_adapter.safetensors",
+  "bytes": 86688984,
+  "sha256": "84b67a1aa5506b0cfa28ea5949ededb19bdcbc7ceda9b50fe6e665af53d4da46",
+  "format": "deit-adapter-v1",
+  "class_names": [
+    "frog",
+    "truck"
+  ],
+  "tensors": 200,
+  "frozen_prefixes": [],
+  "base_state_digest": "7eadf70de01e439569e1bbba8b5ef233b4bf70f25a98d9b33460095672bce38c",
+  "model_id": "facebook/deit-small-patch16-224",
+  "model_revision": "164deee347853469b97442b3817f22eece80c7e3"
+}
+{'reloaded_source': 'artifact:deit_adapter.safetensors', 'adapted': True, 'class_names': ['frog', 'truck']}
+{'images_compared': 60, 'tolerance': 0.0001, 'equivalent': True}
+[colab] Executing cell 15/16 - deit_classification-31...
+  deit_adapter.safetensors                           86,688,984 bytes
+  deit_classification_evaluation_report.json                794 bytes
+  deit_classification_input_manifest.json                 1,347 bytes
+  deit_classification_predictions.csv                    15,366 bytes
+  deit_classification_result.json                        13,342 bytes
+[colab] Executing cell 16/16 - deit_classification-33...
+refused as expected: non-image object -> TypeError: images must be a PIL.Image.Image or a sequence of them
+refused as expected: class with one image -> ValueError: every class needs at least 2 images to split; short classes: {'frog': 1, 'truck': 1}
+BYOD image branch is off; set USE_BYOD_IMAGE = True to classify your own image.
+BYOD dataset branch is off; set USE_BYOD_DATASET = True to adapt DeiT-Small on your own class folders.
+[colab] Saving notebook with outputs to '/home/kurt/colab-runs/deit-classification-pipeline-31c8179-1e8474/deit_classification_colab_31c8179_colab-cli-t4_output.ipynb'...
