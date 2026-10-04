@@ -8,7 +8,10 @@ downloaded. Two sources produce the same record shape, ``{"id": str, "image": PI
 * ``read_class_folder``: a caller's own directory of ``<class>/<image>`` files (BYOD).
 
 Both refuse absolute member paths, ``..`` segments and oversized archives before decoding anything, and
-``validate_dataset`` checks the result before any model runs.
+``validate_dataset`` checks the result before any model runs. ``assign_duplicate_groups`` joins
+pixel-identical and near-duplicate images (e.g. a darkened copy of a photograph) into groups,
+``split_dataset(..., group_key="group")`` keeps every group on one side of a split, and
+``cross_split_duplicates`` checks from the pixels that no held-out image has a copy in the training split.
 """
 
 from __future__ import annotations
@@ -305,14 +308,157 @@ def validate_dataset(
     }
 
 
+# Near-duplicate test (review 2026-10-02, CN2-M2): two images are one group when their 16×16 grayscale
+# thumbnails, mean-centred and scaled to unit length, have a correlation of at least this value. The measure
+# ignores global brightness and contrast, so a darkened copy of a photograph stays with its original. On the
+# pinned CIFAR-10 sample every original/darkened pair correlates at >= 0.987 and no two different photographs
+# above 0.872, so 0.95 separates them with a margin on both sides.
+NEAR_DUPLICATE_SIDE = 16
+NEAR_DUPLICATE_CORRELATION = 0.95
+GROUP_KEY = "group"
+
+
+def _near_duplicate_vectors(records: Sequence[Mapping[str, Any]]) -> np.ndarray:
+    rows = []
+    for record in records:
+        side = (NEAR_DUPLICATE_SIDE, NEAR_DUPLICATE_SIDE)
+        thumb = record["image"].convert("L").resize(side, Image.BILINEAR)
+        vector = np.asarray(thumb, dtype=np.float64).ravel()
+        vector = vector - vector.mean()
+        norm = float(np.linalg.norm(vector))
+        # A flat image has no shape to correlate; it can only match by pixel digest.
+        rows.append(vector / norm if norm > 1e-9 else np.zeros_like(vector))
+    return np.asarray(rows, dtype=np.float32).reshape(len(rows), NEAR_DUPLICATE_SIDE * NEAR_DUPLICATE_SIDE)
+
+
+def _near_duplicate_pairs(
+    left: np.ndarray, right: np.ndarray, threshold: float, *, same: bool
+) -> list[tuple[int, int]]:
+    pairs: list[tuple[int, int]] = []
+    for start in range(0, len(left), 512):  # blocks bound memory at MAX_RECORDS
+        block = left[start : start + 512] @ right.T
+        for i, j in zip(*np.nonzero(block >= threshold), strict=True):
+            a = start + int(i)
+            if not same or a < int(j):
+                pairs.append((a, int(j)))
+    return pairs
+
+
+def assign_duplicate_groups(
+    records: Sequence[Mapping[str, Any]], *, threshold: float = NEAR_DUPLICATE_CORRELATION
+) -> tuple[list[dict[str, Any]], dict[str, Any]]:
+    """Return copies of ``records`` with a ``"group"`` key, and a summary of the grouping.
+
+    Records that are pixel-identical (same decoded RGB pixels and size) or near duplicates (see
+    ``NEAR_DUPLICATE_CORRELATION``) are joined, transitively, into one group; every other record is its own
+    group. The group key is the smallest record id in the group. Pass the result to
+    ``split_dataset(..., group_key="group")`` so that no group straddles two splits.
+    """
+    if not 0.0 < threshold <= 1.0:
+        raise ValueError(f"threshold must be in (0, 1], got {threshold}")
+    items = [dict(record) for record in records]
+    ids = [str(item.get("id", index)) for index, item in enumerate(items)]
+    parent = list(range(len(items)))
+
+    def find(i: int) -> int:
+        while parent[i] != i:
+            parent[i] = parent[parent[i]]
+            i = parent[i]
+        return i
+
+    def union(i: int, j: int) -> None:
+        root_i, root_j = find(i), find(j)
+        if root_i != root_j:
+            parent[max(root_i, root_j)] = min(root_i, root_j)
+
+    first_by_digest: dict[str, int] = {}
+    exact_links = 0
+    for index, item in enumerate(items):
+        digest = _pixel_digest(item["image"])
+        if digest in first_by_digest:
+            union(first_by_digest[digest], index)
+            exact_links += 1
+        else:
+            first_by_digest[digest] = index
+    vectors = _near_duplicate_vectors(items)
+    near_links = 0
+    for i, j in _near_duplicate_pairs(vectors, vectors, threshold, same=True):
+        if find(i) != find(j):
+            near_links += 1
+        union(i, j)
+    members: dict[int, list[int]] = {}
+    for index in range(len(items)):
+        members.setdefault(find(index), []).append(index)
+    for indices in members.values():
+        key = min(ids[i] for i in indices)
+        for i in indices:
+            items[i][GROUP_KEY] = key
+    multi = [indices for indices in members.values() if len(indices) > 1]
+    mixed = [
+        sorted(ids[i] for i in indices)[:3]
+        for indices in multi
+        if len({items[i]["label"] for i in indices}) > 1
+    ]
+    summary = {
+        "records": len(items),
+        "groups": len(members),
+        "groups_with_duplicates": len(multi),
+        "records_in_duplicate_groups": sum(len(indices) for indices in multi),
+        "exact_copies": exact_links,
+        "near_duplicate_links": near_links,
+        "mixed_label_groups": len(mixed),
+        "mixed_label_examples": mixed[:3],
+        "method": (
+            f"pixel digest, or {NEAR_DUPLICATE_SIDE}x{NEAR_DUPLICATE_SIDE} grayscale "
+            f"correlation >= {threshold}"
+        ),
+    }
+    return items, summary
+
+
+def cross_split_duplicates(
+    reference: Sequence[Mapping[str, Any]],
+    others: Mapping[str, Sequence[Mapping[str, Any]]],
+    *,
+    threshold: float = NEAR_DUPLICATE_CORRELATION,
+) -> dict[str, dict[str, int]]:
+    """For each split in ``others``, count its records that have a pixel-identical copy, or a near duplicate,
+    in ``reference`` (normally the training split). Computed from the pixels, independently of any group key;
+    both counts must be 0 for a held-out score that is not partly a score on training images."""
+    digests = {_pixel_digest(record["image"]) for record in reference}
+    reference_vectors = _near_duplicate_vectors(reference)
+    report: dict[str, dict[str, int]] = {}
+    for name, part in others.items():
+        exact = sum(_pixel_digest(record["image"]) in digests for record in part)
+        pairs = _near_duplicate_pairs(_near_duplicate_vectors(part), reference_vectors, threshold, same=False)
+        near = len({i for i, _j in pairs})
+        report[name] = {
+            "records": len(part),
+            "pixel_copy_in_reference": exact,
+            "near_duplicate_in_reference": near,
+        }
+    return report
+
+
 def split_dataset(
-    records: Sequence[Mapping[str, Any]], *, train_fraction: float = 0.7, seed: int = 0
+    records: Sequence[Mapping[str, Any]],
+    *,
+    train_fraction: float = 0.7,
+    seed: int = 0,
+    group_key: str | None = None,
 ) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
     """Stratified, seeded split: each class is shuffled and cut at ``train_fraction``, keeping at least one
     image of every class on each side. A random split assumes independent records; images that share a
-    source photograph, scene or session must be split by that group instead, or the held-out score leaks."""
+    source photograph, scene or session must be split by that group instead, or the held-out score leaks.
+
+    With ``group_key`` (e.g. ``"group"`` from ``assign_duplicate_groups``) whole groups are shuffled and
+    assigned, so every record of a group lands on the same side; a group belongs to the class most of its
+    records carry, and the cut is the number of groups whose record count comes closest to
+    ``train_fraction``. Without it, the split is per record, exactly as before."""
     if not 0.0 < train_fraction < 1.0:
         raise ValueError(f"train_fraction must be between 0 and 1, got {train_fraction}")
+    if group_key is not None:
+        return _split_by_group(records, train_fraction, seed, group_key)
     by_class: dict[str, list[dict[str, Any]]] = {}
     for record in records:
         by_class.setdefault(record["label"], []).append(dict(record))
@@ -330,6 +476,40 @@ def split_dataset(
     return train, held_out
 
 
+def _split_by_group(
+    records: Sequence[Mapping[str, Any]], train_fraction: float, seed: int, group_key: str
+) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
+    groups: dict[str, list[dict[str, Any]]] = {}
+    for index, record in enumerate(records):
+        if group_key not in record:
+            raise ValueError(
+                f"record {index} has no {group_key!r} key; "
+                "run assign_duplicate_groups first or pass group_key=None"
+            )
+        groups.setdefault(str(record[group_key]), []).append(dict(record))
+    by_class: dict[str, list[str]] = {}
+    for key in sorted(groups):
+        labels = [item["label"] for item in groups[key]]
+        by_class.setdefault(max(sorted(set(labels)), key=labels.count), []).append(key)
+    rng = np.random.default_rng(seed)
+    train: list[dict[str, Any]] = []
+    held_out: list[dict[str, Any]] = []
+    for label in sorted(by_class):
+        keys = by_class[label]
+        if len(keys) < 2:
+            raise ValueError(
+                f"class {label!r} has {len(keys)} independent group(s) after duplicate grouping; "
+                "at least 2 are needed to split (add images that are not copies of each other)"
+            )
+        order = [keys[int(i)] for i in rng.permutation(len(keys))]
+        sizes = np.cumsum([len(groups[key]) for key in order])
+        target = sizes[-1] * train_fraction
+        n_train = min(len(keys) - 1, max(1, int(np.argmin(np.abs(sizes[:-1] - target))) + 1))
+        for position, key in enumerate(order):
+            (train if position < n_train else held_out).extend(groups[key])
+    return train, held_out
+
+
 def blank_image(width: int = 224, height: int = 224) -> Image.Image:
     """A featureless white image: a closed-set classifier still assigns it one of its classes."""
     return Image.new("RGB", (width, height), (255, 255, 255))
@@ -339,3 +519,18 @@ def noise_image(seed: int = 0, width: int = 224, height: int = 224) -> Image.Ima
     """Uniform RGB noise: structure-free input, for the same reason as ``blank_image``."""
     rng = np.random.default_rng(seed)
     return Image.fromarray(rng.integers(0, 256, (height, width, 3), dtype=np.uint8))
+
+
+def wilson_interval(successes: int, n: int, z: float = 1.96) -> tuple[float, float]:
+    """Wilson score interval for a binomial proportion (95 % with the default ``z``), e.g. an accuracy
+    of ``successes`` correct answers out of ``n`` held-out images. It stays inside [0, 1] and is not
+    degenerate at 0 or n correct, which matters on the few dozen images a tutorial split holds."""
+    if n < 1 or not 0 <= successes <= n:
+        raise ValueError(f"need 0 <= successes <= n and n >= 1, got {successes}/{n}")
+    p = successes / n
+    denominator = 1 + z * z / n
+    centre = (p + z * z / (2 * n)) / denominator
+    half = z * ((p * (1 - p) / n + z * z / (4 * n * n)) ** 0.5) / denominator
+    low = 0.0 if successes == 0 else max(0.0, centre - half)
+    high = 1.0 if successes == n else min(1.0, centre + half)
+    return low, high

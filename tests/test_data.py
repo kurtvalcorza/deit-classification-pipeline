@@ -1,9 +1,14 @@
 """The data module: pinned sample archive, archive and folder readers, validation and splitting. No torch."""
 
+import contextlib
 import hashlib
+import io
 import zipfile
 
 import pytest
+
+with contextlib.suppress(ImportError):  # torch before any NumPy linear algebra (Windows DLL load order)
+    import torch  # noqa: F401
 from PIL import Image
 
 from conftest import class_zip, colour_image, colour_records
@@ -15,7 +20,9 @@ from deit_classification_pipeline.data import (
     SAMPLE_DATASET_ID,
     SAMPLE_DATASET_REVISION,
     SAMPLE_DATASET_SHA256,
+    assign_duplicate_groups,
     blank_image,
+    cross_split_duplicates,
     fetch_sample_archive,
     noise_image,
     read_class_archive,
@@ -192,3 +199,28 @@ def test_split_dataset_is_stratified_deterministic_and_disjoint():
 def test_probe_images_are_deterministic():
     assert blank_image().getextrema() == ((255, 255), (255, 255), (255, 255))
     assert noise_image(3).tobytes() == noise_image(3).tobytes() != noise_image(4).tobytes()
+
+
+def test_duplicate_pairs_in_an_archive_land_in_one_split(tmp_path):
+    """DEIT-M2: an archive holding a photograph twice (as the pinned sample does) never splits the pair."""
+    path = tmp_path / "dup.zip"
+    with zipfile.ZipFile(path, "w") as archive:
+        for record in colour_records(6):
+            png = io.BytesIO()
+            record["image"].save(png, format="PNG")
+            # a pixel-identical copy under a second name
+            for folder in ("original_images", "darkened_images"):
+                archive.writestr(f"root/{folder}/{record['id']}", png.getvalue())
+    records = read_class_archive(path)
+    assert validate_dataset(records, SAMPLE_CLASSES)["duplicate_groups"] == 12
+    grouped, summary = assign_duplicate_groups(records)
+    assert summary["groups"] == 12 and summary["exact_copies"] == 12
+    for seed in range(4):
+        train, held = split_dataset(grouped, train_fraction=0.5, seed=seed, group_key="group")
+        assert {r["group"] for r in train}.isdisjoint({r["group"] for r in held})
+        report = cross_split_duplicates(train, {"held_out": held})["held_out"]
+        assert report == {
+            "records": len(held),
+            "pixel_copy_in_reference": 0,
+            "near_duplicate_in_reference": 0,
+        }

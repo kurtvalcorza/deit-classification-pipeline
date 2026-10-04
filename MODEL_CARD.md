@@ -18,7 +18,7 @@ date_published_source: "month of the DeiT paper and first code release (arXiv:20
 > ⚠️ **Provided for research, training, and evaluation purposes only.** Model weights are redistributed unmodified under their upstream license, which controls your use, including any commercial use or redistribution; the accompanying code and notebooks are released under this repository's license. All of it is supplied **"as is"**, without warranty of any kind, and has not been validated for production, clinical, or safety-critical use. Running the notebooks downloads third-party weights and datasets governed by their own licenses and consumes compute on your own Colab/Kaggle account. To the maximum extent permitted by law, the maintainers of this repository and the DIMER platform accept no liability for any damages arising from their use. Hosting implies no affiliation with or endorsement by the original authors.
 
 > [!IMPORTANT]
-> The upstream snapshot is pinned to Hub commit `164deee347853469b97442b3817f22eece80c7e3`, and the manifest records every file's SHA-256. Default-path execution recorded on 2026-09-26 (Kaggle T4); REL12 BYOD exercise pending before promotion. The measured values under Metrics come from that one run: one seeded split of 60 held-out and 60 unseen CIFAR-10 thumbnails (frog and truck), one runtime. They are tutorial evidence, not a benchmark, and most evaluation images have a near-duplicate in the training split (see Metrics).
+> The upstream snapshot is pinned to Hub commit `164deee347853469b97442b3817f22eece80c7e3`, and the manifest records every file's SHA-256. A default-path execution was recorded on 2026-09-26 (Kaggle T4); it needed a manual restart after the install cell, so it is not a one-pass `Run all`, and the tutorial now runs in an isolated `uv` environment instead (Linux x86_64 runtimes only). REL12 BYOD exercise pending before promotion. The measured values under Metrics come from that one run: one seeded split of 60 held-out and 60 unseen CIFAR-10 thumbnails (frog and truck), one runtime. They are tutorial evidence, not a benchmark, and that split left copies of many evaluation images in the training split (see Metrics).
 
 ---
 
@@ -73,7 +73,7 @@ A user is expected to know the following before relying on the output:
 - accuracy is only meaningful next to the majority-class baseline of the same data, and balanced accuracy is the fairer summary when classes are imbalanced;
 - sketches, screenshots, medical, aerial and thermal images, and very small images upsampled to 224 px, are distribution shifts from ImageNet photographs;
 - a fine-tune on a few hundred images demonstrates the workflow and does not produce a deployable classifier;
-- the tutorial's split is by image ID and not duplicate-aware: in the recorded run 46 of 60 held-out and 36 of 60 unseen images had their darkened/original counterpart in the training split, so its held-out and unseen scores are not evidence of generalisation;
+- the split of the recorded run was by image ID and not duplicate-aware: 25 of 60 held-out and 19 of 60 unseen images had a pixel-identical copy in the training split (46 and 36 a copy of either kind), so its held-out and unseen scores are not evidence of generalisation; the tutorial splits by duplicate group since 2026-10-04;
 - in the recorded tutorial run the adapted frog/truck head answered `frog` with score 0.598 for a blank image and 0.912 for pure noise, and the ImageNet head gave both CIFAR-10 frog sample images non-frog top-1 labels (`tick`, `ocarina`).
 
 ###### Out-of-scope use cases
@@ -134,7 +134,7 @@ Values measured by this repository (one run on Kaggle Tesla T4, 2026-09-26 UTC; 
 - **Degenerate probes:** the ImageNet head gave a blank image top-1 0.006 (`face powder`) and noise 0.083 (`kite`); the adapted two-class head gave a blank image `frog` 0.598 and noise `frog` 0.912.
 - **Adapter reload:** 60 images compared, tolerance 0.0001, equivalent.
 
-The sample archive holds 100 groups of pixel-identical images (an `original_images` file and its same-numbered `darkened_images` file) and the tutorial's split is by ID only, not duplicate-aware. In the recorded run 46 of the 60 held-out and 36 of the 60 unseen images had their counterpart in the training split (counted from the IDs in `deit_classification_predictions.csv`; counterparts, not confirmed pixel copies), so the 1.000 scores are not evidence of generalisation. The BYOD branches were not exercised in this run.
+**Duplicate leakage.** The sample archive holds each of its 200 photographs twice (100 pixel-identical pairs and 100 original/darkened pairs), and the split of that run was by image ID only, not duplicate-aware: 25 of the 60 held-out and 19 of the 60 unseen images had a pixel-identical copy in the training split, and 46 and 36 a copy of either kind (counted from the pixels). Since 2026-10-04 the tutorial groups the copies (`assign_duplicate_groups`), splits by group (`split_dataset(..., group_key="group")`) and checks from the pixels that no held-out or unseen image has a copy in training (`cross_split_duplicates`); on that split a CPU check of the pinned weights scored zero-shot 59/60 and fine-tuned 60/60 on the held-out images: zero-shot is at ceiling, so no fine-tuning gain is measurable on this pair. The 1.000 scores above are not evidence of generalisation. The BYOD branches were not exercised in this run.
 
 ###### Decision thresholds
 
@@ -194,7 +194,7 @@ Some sensitive uses are foreseeable although not intended: triage of medical or 
 - **Overfitting in adaptation.** A fine-tune on a few hundred images can score well on a held-out split from the same source and fail on anything else. The operator who deploys it bears the harm whenever training and deployment images differ.
 - **Misleading accuracy.** Accuracy on an imbalanced set can exceed the majority baseline by little while looking high. Reporting it without the baseline and balanced accuracy overstates quality.
 - **Automation bias.** High softmax scores invite trust that an uncalibrated score has not earned. Operators who skip review turn a model error into a decision error.
-- **Leakage through adaptation data.** A random split of records that share a source photograph or session puts near-duplicates on both sides. The resulting held-out score overstates quality; `validate_dataset` reports exact duplicates, and `split_dataset` documents that grouped data must be split by group.
+- **Leakage through adaptation data.** A random split of records that share a source photograph or session puts near-duplicates on both sides. The resulting held-out score overstates quality; `validate_dataset` reports exact duplicates, `assign_duplicate_groups` joins exact and near-duplicate copies, `split_dataset(..., group_key="group")` keeps each group on one side, and `cross_split_duplicates` counts copies across splits.
 
 ###### Use cases
 
@@ -233,7 +233,7 @@ The following uses are prohibited even where the model would work:
 
 ## Verification records
 
-Default-path execution recorded on 2026-09-26 (Kaggle T4): exact notebook blob `1a0317f0db42` at commit `4386e6d`, 348.7 s, 14/14 post-restart code cells, both BYOD branches off; measured values are under Metrics. REL12 BYOD exercise pending before promotion. The offline test suite runs a two-layer `ViTForImageClassification` with random weights on 32 px inputs through prediction, the zero-shot baseline, full and frozen fine-tuning, evaluation and adapter reload; that exercises the code path and is not a result about this model. `docs/release-verification.md` holds the release gate and the record table.
+Default-path execution recorded on 2026-09-26 (Kaggle T4): exact notebook blob `1a0317f0db42` at commit `4386e6d`, 348.7 s, 14/14 code cells only after a manual restart following the install cell — not a one-pass `Run all`, not promotion evidence; both BYOD branches off; measured values are under Metrics, and 25 of 60 held-out and 19 of 60 unseen images had a pixel-identical copy in the training split. The 2026-10-04 revision of the tutorial (isolated `uv` environment, duplicate-aware split, review fixes) has a CPU pre-flight only. REL12 BYOD exercise pending before promotion. The offline test suite runs a two-layer `ViTForImageClassification` with random weights on 32 px inputs through prediction, the zero-shot baseline, full and frozen fine-tuning, evaluation and adapter reload; that exercises the code path and is not a result about this model. `docs/release-verification.md` holds the release gate and the record table.
 
 ## References
 
