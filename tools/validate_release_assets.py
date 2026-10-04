@@ -1,6 +1,6 @@
 """Static release-asset validation for the DeiT-Small image-classification DIMER pipeline.
 
-Checks the STANDALONE tutorial notebook (DIMER Notebook Specification 2.1 §4), the tutorial
+Checks the STANDALONE tutorial notebook (DIMER Notebook Specification 2.2 §4), the tutorial
 registry, model card (DIMER Model Card Specification 1.2), README, STATUS.md and weight documentation
 for source conformance and cross-document identity consistency, the snapshot pin state, and runs the
 generator parity checks (PAR1–PAR3).
@@ -38,9 +38,9 @@ KNOWN_SHAS: frozenset[str] = frozenset(
     )
 )
 
-# NOTEBOOK_SPEC 2.1 §10.3: BYOD is gated off by default so the sample path runs top-to-bottom.
+# NOTEBOOK_SPEC 2.2 §10.3: BYOD is gated off by default so the sample path runs top-to-bottom.
 BYOD_GATES = ("USE_BYOD_IMAGE", "USE_BYOD_DATASET")
-# NOTEBOOK_SPEC 2.1 EXE2: every file-reading branch has a location field.
+# NOTEBOOK_SPEC 2.2 EXE2: every file-reading branch has a location field.
 LOCATION_FIELDS = ("BYOD_IMAGE_PATH", "BYOD_DATASET_PATH")
 
 EXPECTED_OUTPUTS = (
@@ -55,8 +55,12 @@ CODE_MARKERS = (
     "archive_info = fetch_sample_archive(DATA_DIR, allow_download=True)",
     "records = read_class_archive(DATA_DIR / SAMPLE_DATASET_FILE, classes=SAMPLE_CLASSES, max_per_class=PER_CLASS, seed=DATASET_SEED)",
     "dataset_manifest = validate_dataset(records, SAMPLE_CLASSES, epochs=EPOCHS)",
-    "train_records, rest = split_dataset(records, train_fraction=0.7, seed=SEED)",
-    "held_out, unseen = split_dataset(rest, train_fraction=0.5, seed=SEED)",
+    # DEIT-M2: copies of one photograph are grouped, split together, and checked from the pixels.
+    "records, duplicate_summary = assign_duplicate_groups(records)",
+    "train_records, rest = split_dataset(records, train_fraction=0.7, seed=SEED, group_key='group')",
+    "held_out, unseen = split_dataset(rest, train_fraction=0.5, seed=SEED, group_key='group')",
+    "leakage = cross_split_duplicates(train_records, {'held_out': held_out, 'unseen': unseen})",
+    "if any(row['pixel_copy_in_reference'] or row['near_duplicate_in_reference'] for row in leakage.values()):",
     "TRAIN_MAJORITY = majority_class(train_records)",
     "imagenet_result = pipe.predict([r['image'] for r in sample], top_k=TOP_K)",
     "imagenet_report = evaluation_report(imagenet_result, [r['label'] for r in sample], groups=IMAGENET_GROUPS, sample_kind='sample')",
@@ -70,9 +74,27 @@ CODE_MARKERS = (
     "unseen_metrics = adapter.evaluate(unseen, majority=TRAIN_MAJORITY)",
     "descriptor = adapter.save_artifact(artifact_path, notes='DeiT-Small CIFAR-10 frog/truck tutorial adapter')",
     "reloaded = DeiTPipeline.load_artifact(artifact_path, weights_dir=WEIGHTS_DIR)",
-    "assert a['predicted_label'] == b['predicted_label']",
+    # DEIT-M3: the reload check names the mismatch and the next step; every fine-tune starts from the re-headed model.
+    "reload_check = reload_equivalence(adapter, reloaded, [r['image'] for r in unseen[:MAX_BATCH]])",
+    "the export does not reproduce the evaluated model",
+    # DEIT-m2: the comparison states when it is at ceiling.
+    "if zs['correct'] >= N_HELD - 1:",
+    "low, high = wilson_interval(correct, N_HELD)",
+    "'held_out_intervals': held_out_intervals,",
+    "this run measures no fine-tuning gain",
+    "'comparison_verdict': comparison_verdict,",
     "byod_records = read_class_archive(source) if source.suffix.lower() == '.zip' else read_class_folder(source)",
-    "byod_pipe.finetune(byod_train",
+    "byod_run = byod_pipe.finetune(byod_train",
+    # DEIT-m1: the BYOD dataset branch splits by group, exports results and compares the reloaded adapter.
+    "byod_records, byod_duplicates = assign_duplicate_groups(byod_records)",
+    "byod_train, byod_rest = split_dataset(byod_records, train_fraction=0.7, seed=SEED, group_key='group')",
+    "byod_reload_check = reload_equivalence(byod_pipe, byod_reloaded,",
+    "byod_deit_classification_result.json",
+    "is empty and this runtime has no Colab upload dialog: set",
+    "the dataset must be a directory or a .zip of <class>/<image> folders",
+    "image(s) at the top level were ignored",
+    # FIX_PACKET addendum: the isolated worker's google.colab stubs carry a ModuleSpec (accelerate calls find_spec).
+    "importlib.machinery.ModuleSpec(name, None, is_package=package)",
     "'model_revision': MODEL_REVISION",
     "'model_license': MODEL_LICENSE",
     "transformers.__version__",
@@ -86,9 +108,26 @@ MARKDOWN_MARKERS = (
     "Two baselines give the fine-tune something to beat",
     "CIFAR-10's `truck` excludes pickups",
     'A closed-set classifier has no "none of these" answer',
-    "**Expect roughly chance.**",
+    # DEIT-M2/M3/M4: duplicate-aware split, the ceiling reading, and the fine-tune rebuild.
+    "**The archive is not 400 independent photographs.**",
+    "**An untrained head is not a chance baseline.**",
+    "**The comparison that matters is fine-tuned against zero-shot**",
+    "**What the comparison shows.**",
+    "**Adaptation always starts from the re-headed model.**",
+    # DEIT-M4: the guided layer of a GUIDED notebook (NOTEBOOK_SPEC 2.2 GDL1-GDL14).
+    "**Who this is for.**",
+    "**Input → Model → Output.**",
+    "**How to use this notebook.**",
+    "**Roadmap:**",
+    "> **Infrastructure.**",
+    "## 14. Your turn — change one thing: freeze the backbone",
+    "Runtime → Run after",
+    "## Troubleshooting",
+    "## Glossary",
+    "## Conclusion (your notes)",
     "**Read the loss as optimisation evidence only.**",
-    "`balanced_accuracy` averages the per-class recall",
+    "`balanced_accuracy`, the mean of the per-class recalls",
+    "**95% Wilson interval**",
     "**Preprocessing note.**",
 )
 
@@ -110,10 +149,38 @@ FORBIDDEN_OUTSIDE_MODULE = (
 # ---------------------------------------------------------------------------
 # Shared checks. Everything below is source/structure validation only. Passing
 # these checks is NOT clean-runtime execution evidence under DIMER Notebook
-# Specification 2.1; see docs/release-verification.md for the release gate.
+# Specification 2.2; see docs/release-verification.md for the release gate.
 # ---------------------------------------------------------------------------
 
-NOTEBOOK_SPEC = "2.1"
+# 2.2 since 2026-10-04 (DEIT-M1): the tutorial runs in the uv isolated environment (generator /2.1), no in-kernel install.
+NOTEBOOK_SPEC = "2.2"
+# Learner-facing text that must not come back (review 2026-10-02).
+STALE_MARKDOWN = (
+    "installed directly — there is no repository clone",  # DEIT-M1
+    "the cell stops with a restart instruction",  # DEIT-M1
+    "CIFAR-10 images are independent thumbnails",  # DEIT-M2
+    "**Expect roughly chance.**",  # DEIT-m2
+    "the fine-tune — not the re-heading — is what moves the score",  # DEIT-m2
+    "watch how quickly the fine-tuned model falls back toward the zero-shot baseline",  # DEIT-m2
+    "Set `FREEZE_BACKBONE = True` and compare the held-out scores and runtime",  # DEIT-M3
+    "Runtimes are not measured in this revision",  # DEIT-m3
+    "@@",  # an unfilled number placeholder of the template
+)
+# DEIT-M4: Sections 4-10 ask for a prediction; the following sections and the closing open worked answers.
+GUIDED_PREDICT_SECTIONS = (4, 5, 6, 7, 8, 9, 10)
+GUIDED_MIN_WORKED_ANSWERS = 9
+GLOSSARY_TERMS = (
+    "DeiT / patch embedding / `[CLS]` token",
+    "Data-efficient training",
+    "Softmax score",
+    "Zero-shot mapping",
+    "Re-heading",
+    "Duplicate group",
+    "Held-out split",
+    "Accuracy / balanced accuracy",
+    "At ceiling",
+    "Adapter / reload equivalence",
+)
 MODEL_CARD_SPEC = "1.2"
 ALLOWED_PROFILES = {"E2E", "ARTIFACT-INFERENCE", "TASK-INFERENCE", "MULTI-CAPABILITY", "SMOKE"}
 STATUS_TOKENS = ("Candidate", "Release-grade")
@@ -759,10 +826,79 @@ def _validate_notebook_content(
     _validate_bootstrap_guard(path, code_cells)
     for filename in EXPECTED_OUTPUTS:
         _check(filename in code, f"{path.name}: must export {filename}")
+    # DEIT-M1: only the uv install cell and the router run in the kernel; the install is hash-locked, Linux x86_64 only.
+    kernel = [source for _index, source, _tree in code_cells if "# dimer: kernel cell" in source]
+    _check(len(kernel) == 2, f"{path.name}: exactly the install and router cells run in the kernel, found {len(kernel)}")
+    install = next((k for k in kernel if "LOCK_TEXT = r" in k), "")
+    for needed in (
+        '"--managed-python"',
+        '"--require-hashes"',
+        '"--only-binary"',
+        '":all:"',
+        "UV_SHA256",
+        "LOCK_SHA256",
+        'platform.machine() != "x86_64"',
+    ):
+        _check(needed in install, f"{path.name}: the isolated install cell must use {needed} (uv isolated environment)")
+    learner = "\n".join(
+        text
+        for index, text in stripped.items()
+        if index not in embedded_indices and "# dimer: kernel cell" not in text
+    )
+    _check(
+        "from IPython" not in learner,
+        f"{path.name}: learner cells run in the isolated environment, which has no IPython",
+    )
+    stale = [marker for marker in STALE_MARKDOWN if marker in markdown]
+    _check(not stale, f"{path.name}: stale learner-facing text: {stale}")
     missing_md = [marker for marker in COMMON_MARKDOWN_MARKERS + MARKDOWN_MARKERS if marker not in markdown]
     _check(not missing_md, f"{path.name}: missing learner-facing markers: {missing_md}")
     _check(f"**Profile:** `{EXPECTED_PROFILE}`" in markdown, f"{path.name}: markdown must state the profile")
     _check(f"https://huggingface.co/{model_id}" in markdown, f"{path.name}: references must link {model_id}")
+
+
+def _section_cells(notebook: dict, number: int) -> tuple[str, str]:
+    """(markdown, code) of stage `## <number>. ...`: the markdown cell with the heading and the next code cell."""
+    cells = notebook.get("cells", [])
+    for index, cell in enumerate(cells):
+        if cell.get("cell_type") == "markdown" and f"## {number}. " in _cell_source(cell):
+            code = next((_cell_source(c) for c in cells[index + 1 :] if c.get("cell_type") == "code"), "")
+            return _cell_source(cell), code
+    raise ValidationError(f"no '## {number}.' section in the tutorial notebook")
+
+
+def _validate_guided_layer(path: Path, notebook: dict) -> None:
+    """DEIT-M3 / DEIT-M4: predictions, worked answers, glossary, collapsed infrastructure, the Section 8 rebuild."""
+    for number in GUIDED_PREDICT_SECTIONS:
+        md, _code = _section_cells(notebook, number)
+        _check(
+            "**Predict before running:**" in md.split(f"## {number}. ", 1)[1],
+            f"{path.name}: Section {number} must ask for a prediction before it runs (GDL6)",
+        )
+    markdown = "\n".join(_cell_source(c) for c in notebook.get("cells", []) if c.get("cell_type") == "markdown")
+    answers = markdown.count("<details><summary>Check your reasoning</summary>")
+    _check(
+        answers >= GUIDED_MIN_WORKED_ANSWERS,
+        f"{path.name}: {answers} worked answers, at least {GUIDED_MIN_WORKED_ANSWERS} expected (GDL7)",
+    )
+    glossary = markdown.split("## Glossary", 1)[-1]
+    missing = [term for term in GLOSSARY_TERMS if f"- **{term}" not in glossary]
+    _check(not missing, f"{path.name}: glossary misses {missing}")
+    for cell in notebook.get("cells", []):
+        if cell.get("metadata", {}).get("dimer", {}).get("embedded_module"):
+            _check(
+                cell["metadata"].get("jupyter", {}).get("source_hidden") is True,
+                f"{path.name}: carried module cells must be collapsed (GDL11)",
+            )
+    _md, code = _section_cells(notebook, 8)
+    body = _strip_comments(code)
+    rebuild = re.search(
+        r"if adapter\.adapted:\n(?:[ \t]*\n)*[ \t]+adapter = DeiTPipeline\.from_pretrained\(", body
+    )
+    _check(
+        rebuild is not None and rebuild.start() < body.find("run = adapter.finetune("),
+        f"{path.name}: Section 8 must rebuild the re-headed model before it fine-tunes (DEIT-M3)",
+    )
 
 
 def validate_notebooks() -> None:
@@ -783,6 +919,7 @@ def validate_notebooks() -> None:
     _validate_identity(path, code_cells, embedded_indices, revision)
     _validate_parity(path, notebook, code_cells, build)
     _validate_notebook_content(path, code_cells, markdown, embedded_indices)
+    _validate_guided_layer(path, notebook)
     registry = _read(tutorials / "README.md")
     _check(f"`{path.name}`" in registry, f"{path.name} missing from tutorials/README.md")
     _check(f"`{EXPECTED_PROFILE}`" in registry, f"tutorials/README.md must record `{EXPECTED_PROFILE}`")
