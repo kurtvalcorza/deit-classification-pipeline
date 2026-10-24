@@ -96,12 +96,12 @@ def test_loader_strict_loads_a_full_size_checkpoint_and_refuses_drift(tmp_path):
     model.config.id2label = dict(enumerate(_labels_with_groups()))
     model.config.label2id = {v: k for k, v in model.config.id2label.items()}
     model.config.save_pretrained(tmp_path)
-    torch.save(model.state_dict(), tmp_path / "pytorch_model.bin")
+    pipeline_module._write_converted(model.state_dict(), tmp_path / pipeline_module.CONVERTED_WEIGHTS_FILE)
     loaded = pipeline_module._load_pretrained(tmp_path)
     assert all(torch.equal(v, loaded.state_dict()[k]) for k, v in model.state_dict().items())
     state = model.state_dict()
     state.pop("classifier.bias")
-    torch.save(state, tmp_path / "pytorch_model.bin")
+    pipeline_module._write_converted(state, tmp_path / pipeline_module.CONVERTED_WEIGHTS_FILE)
     with pytest.raises(RuntimeError, match="classifier.bias"):
         pipeline_module._load_pretrained(tmp_path)
     config = json.loads((tmp_path / "config.json").read_text())
@@ -165,8 +165,9 @@ def test_verify_snapshot_accepts_matching_and_rejects_every_mismatch(tmp_path, p
         verify_snapshot(tmp_path)
 
 
-def test_stage_missing_files_fetches_only_absent_entries(tmp_path, pinned):
+def test_stage_missing_files_fetches_only_absent_entries(tmp_path, pinned, monkeypatch):
     payload = b"weights"
+    monkeypatch.setattr(pipeline_module, "SOURCE_WEIGHTS_SHA256", hashlib.sha256(payload).hexdigest())
     _write_snapshot(tmp_path, pinned, b"{}")
     manifest = json.loads((tmp_path / "dimer-base-manifest.json").read_text())
     manifest["files"].append(
