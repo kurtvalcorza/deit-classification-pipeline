@@ -496,9 +496,11 @@ def validate_identity_consistency() -> None:
 WEIGHT_DOCS = ("README.md", "MODEL_CARD.md", "docs/WEIGHTS.md")
 EXTERNAL_WEIGHT_BYTES: dict[int, str] = {
     986707: "sample dataset archive CIFAR-10-subset.zip (Cleanlab/cifar-10-subset at the pinned commit)",
+    88225584: "safetensors conversion of pytorch_model.bin (served file, written locally by convert_checkpoint)",
 }
 EXTERNAL_WEIGHT_DIGESTS: dict[str, str] = {
     "66f90a4f87d865e8eb653b62f10e754684075a32314177de76832349d4b1fb19": "sample dataset archive CIFAR-10-subset.zip SHA-256",
+    "aad9d62d6a6a04e597ae664d33c95820ec26930f2b63bba0e1b935cff280f5be": "safetensors conversion (CONVERTED_SHA256)",
 }
 _DIGEST = re.compile(r"(?<![0-9a-fA-F])[0-9a-f]{64}(?![0-9a-fA-F])")
 _GROUPED = r"(\d{1,3}(?:[,   ]\d{3})+|\d+)"

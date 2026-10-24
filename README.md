@@ -55,7 +55,8 @@ weights/deit-small-patch16-224/
   dimer-base-manifest.json   # modelId, revision, per-file bytes + SHA-256 (4 files + 1 reference file)
   preprocessor_config.json   # committed; 224 px resize, mean/std 0.5 (recorded, not used)
   config.json                # staged; ViTForImageClassification, 384 wide, 12 layers, 6 heads, patch 16
-  pytorch_model.bin          # git-ignored, 88,283,631 bytes; the executed artifact
+  pytorch_model.bin          # git-ignored, 88,283,631 bytes; the pickle source, read once to convert
+  model.converted.safetensors   # git-ignored, 88,225,584 bytes; the served file (SHA-256 aad9d62d6a6a…)
   README.md                  # staged with the weights
 ```
 

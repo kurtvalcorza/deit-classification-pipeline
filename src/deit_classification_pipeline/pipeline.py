@@ -2,9 +2,11 @@
 
 The class loads weights only from a digest-verified local snapshot (``weights/<key>/``). The architecture is
 ``ViTForImageClassification`` from the pinned ``transformers`` release, built from the snapshot's
-``config.json`` with no network access and no remote code. The Hub repository hosts no SafeTensors file, so
-the verified ``pytorch_model.bin`` is read with ``torch.load(..., weights_only=True)``, which refuses
-arbitrary pickled objects, and loaded with ``strict=True``.
+``config.json`` with no network access and no remote code. The pinned Hub revision's weights are a pickled
+``pytorch_model.bin``, so the verified file is read once with ``torch.load(..., weights_only=True)`` (which
+refuses arbitrary pickled objects), strict-loaded, and converted into a safetensors file whose SHA-256 is
+pinned below. The model is served only from that conversion, with ``strict=True``; once it exists the
+pickle file is neither required nor read.
 
 Preprocessing is DeiT's own evaluation transform (bicubic resize of the shorter side to 256 px, centre crop
 224, ImageNet mean and standard deviation), not the snapshot's ``preprocessor_config.json``, which specifies
@@ -39,6 +41,12 @@ UNPINNED = "unpinned"
 PIN_COMMAND = "python tools/pin_snapshot.py"
 WEIGHTS_FILE = "pytorch_model.bin"
 CONFIG_FILE = "config.json"
+# The pickle source at MODEL_REVISION (its Hub LFS SHA-256, also recorded in the manifest) and the served
+# file: its state dict converted once into safetensors (no code, no pickle).
+SOURCE_WEIGHTS_SHA256 = "7eadf70de01e439569e1bbba8b5ef233b4bf70f25a98d9b33460095672bce38c"
+CONVERTED_WEIGHTS_FILE = "model.converted.safetensors"
+CONVERTED_SHA256 = "aad9d62d6a6a04e597ae664d33c95820ec26930f2b63bba0e1b935cff280f5be"
+CONVERTED_METADATA = {"format": "pt"}
 
 NUM_IMAGENET_CLASSES = 1000
 MIN_IMAGE_SIDE = 8
@@ -96,8 +104,9 @@ def _read_manifest(root: Path) -> dict[str, Any]:
         return json.load(fh)
 
 
-def verify_snapshot(path: str | Path | None = None) -> dict[str, Any]:
-    """Check a local snapshot against its DIMER manifest; raise naming the first mismatch."""
+def verify_snapshot(path: str | Path | None = None, *, include_source: bool = True) -> dict[str, Any]:
+    """Check a local snapshot against its DIMER manifest; raise naming the first mismatch. With
+    ``include_source=False`` (the conversion already exists) the pickle weights entry is not required."""
     _require_pinned("verify the snapshot")
     root = Path(path) if path is not None else DEFAULT_WEIGHTS_DIR
     manifest = _read_manifest(root)
@@ -108,6 +117,12 @@ def verify_snapshot(path: str | Path | None = None) -> dict[str, Any]:
     for entry in manifest["files"]:
         if not entry.get("sha256"):
             raise ValueError(f"{entry['path']}: manifest records no sha256; run `{PIN_COMMAND}`")
+        if entry["path"] == WEIGHTS_FILE and entry["sha256"] != SOURCE_WEIGHTS_SHA256:
+            raise ValueError(
+                f"{WEIGHTS_FILE}: manifest sha256 {entry['sha256']} != pinned {SOURCE_WEIGHTS_SHA256}"
+            )
+        if entry["path"] == WEIGHTS_FILE and not include_source:
+            continue
         file_path = root / entry["path"]
         if not file_path.is_file():
             raise FileNotFoundError(f"snapshot file missing: {file_path}")
@@ -139,6 +154,7 @@ def stage_missing_files(
     *,
     allow_download: bool = False,
     downloader: Callable[[str, Path], None] | None = None,
+    include_source: bool = True,
 ) -> list[str]:
     """Fetch manifest-listed files that are absent locally (a fresh clone commits the manifest but
     git-ignores the weights). Returns the relative paths fetched; `verify_snapshot` still runs after."""
@@ -150,7 +166,11 @@ def stage_missing_files(
             f"manifest names {manifest.get('modelId')}@{manifest.get('revision')}, "
             f"package pins {MODEL_ID}@{MODEL_REVISION}; refusing to stage"
         )
-    missing = [entry["path"] for entry in manifest["files"] if not (root / entry["path"]).is_file()]
+    missing = [
+        entry["path"]
+        for entry in manifest["files"]
+        if not (root / entry["path"]).is_file() and (include_source or entry["path"] != WEIGHTS_FILE)
+    ]
     if not missing:
         return []
     if not allow_download:
@@ -441,8 +461,8 @@ def check_imagenet_groups(labels: Sequence[str]) -> None:
         raise ValueError(f"id2label does not follow the ImageNet-1k order at the group indices: {wrong}")
 
 
-def _load_pretrained(root: Path) -> Any:
-    import torch
+def _build_from_config(root: Path) -> Any:
+    """``ViTForImageClassification`` with random weights from the snapshot's checked ``config.json``."""
     from transformers import ViTConfig, ViTForImageClassification
 
     config = ViTConfig.from_pretrained(str(root), local_files_only=True)
@@ -451,9 +471,65 @@ def _load_pretrained(root: Path) -> Any:
     }
     if drift or config.num_labels != NUM_IMAGENET_CLASSES or ARCHITECTURE not in (config.architectures or []):
         raise ValueError(f"snapshot config.json does not describe DeiT-Small with an ImageNet head: {drift}")
-    model = ViTForImageClassification(config)
+    return ViTForImageClassification(config)
+
+
+def _write_converted(state: Mapping[str, Any], target: Path) -> None:
+    """Write a state dict as safetensors, byte-reproducibly: every tensor is cloned into its own contiguous
+    CPU storage (safetensors refuses shared storage) and the one-key metadata header has a fixed order."""
+    from safetensors.torch import save_file
+
+    tensors = {name: value.detach().to("cpu").contiguous().clone() for name, value in state.items()}
+    save_file(tensors, str(target), metadata=dict(CONVERTED_METADATA))
+
+
+def verify_converted(path: str | Path | None = None) -> dict[str, Any]:
+    """Check the converted serving file against its pinned SHA-256; raise on a missing or altered file."""
+    _require_pinned("verify the converted weights")
+    root = Path(path) if path is not None else DEFAULT_WEIGHTS_DIR
+    file_path = root / CONVERTED_WEIGHTS_FILE
+    if not file_path.is_file():
+        raise FileNotFoundError(f"converted weights missing: {file_path}")
+    digest = _sha256(file_path)
+    if digest != CONVERTED_SHA256:
+        raise ValueError(f"{CONVERTED_WEIGHTS_FILE}: sha256 {digest} != pinned {CONVERTED_SHA256}")
+    return {"path": CONVERTED_WEIGHTS_FILE, "bytes": file_path.stat().st_size, "sha256": digest}
+
+
+def convert_checkpoint(path: str | Path | None = None) -> dict[str, Any]:
+    """Convert the verified ``pytorch_model.bin`` into the pinned safetensors file, once.
+
+    The whole snapshot must pass `verify_snapshot` first. The pickle is read with
+    ``torch.load(..., weights_only=True)``, must be a flat dict of tensors, and must load into the model built
+    from ``config.json`` with ``strict=True``; the written file must then hash to `CONVERTED_SHA256`, or it is
+    deleted and the conversion refused. ViT ties no weights, so every tensor is kept under its own name."""
+    root = Path(path) if path is not None else DEFAULT_WEIGHTS_DIR
+    source = verify_snapshot(root)
+    import torch
+
     state = torch.load(root / WEIGHTS_FILE, map_location="cpu", weights_only=True)
-    model.load_state_dict(state, strict=True)
+    if not isinstance(state, dict) or any(not isinstance(v, torch.Tensor) for v in state.values()):
+        raise ValueError(f"{WEIGHTS_FILE} did not unpickle to a flat state dict of tensors")
+    _build_from_config(root).load_state_dict(state, strict=True)
+    target = root / CONVERTED_WEIGHTS_FILE
+    partial = target.with_name(target.name + ".partial")
+    _write_converted(state, partial)
+    digest = _sha256(partial)
+    if digest != CONVERTED_SHA256:
+        partial.unlink()
+        raise ValueError(
+            f"conversion of {WEIGHTS_FILE} hashed to {digest}, not the pinned {CONVERTED_SHA256}"
+        )
+    partial.replace(target)
+    return {"source": source, "converted": verify_converted(root), "tensors": len(state)}
+
+
+def _load_pretrained(root: Path) -> Any:
+    """The model from ``config.json``, strict-loaded from the safetensors conversion (never the pickle)."""
+    from safetensors.torch import load_file
+
+    model = _build_from_config(root)
+    model.load_state_dict(load_file(str(root / CONVERTED_WEIGHTS_FILE)), strict=True)
     check_imagenet_groups(imagenet_labels(model))
     return model
 
@@ -538,9 +614,13 @@ class DeiTPipeline:
                 f"no snapshot manifest at {root}; stage {MODEL_ID} under weights/{MODEL_KEY} "
                 "(allow_download=True fetches the manifest-listed files)"
             )
-        stage_missing_files(root, allow_download=allow_download)
-        snapshot = verify_snapshot(root)
+        converted = (root / CONVERTED_WEIGHTS_FILE).is_file()
+        stage_missing_files(root, allow_download=allow_download, include_source=not converted)
+        snapshot = verify_snapshot(root, include_source=not converted)
         names = _check_class_names(class_names) if class_names is not None else None
+        if not converted:
+            convert_checkpoint(root)
+        verify_converted(root)
 
         import torch
 
