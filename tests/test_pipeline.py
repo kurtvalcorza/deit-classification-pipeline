@@ -165,8 +165,9 @@ def test_verify_snapshot_accepts_matching_and_rejects_every_mismatch(tmp_path, p
         verify_snapshot(tmp_path)
 
 
-def test_stage_missing_files_fetches_only_absent_entries(tmp_path, pinned):
+def test_stage_missing_files_fetches_only_absent_entries(tmp_path, pinned, monkeypatch):
     payload = b"weights"
+    monkeypatch.setattr(pipeline_module, "SOURCE_WEIGHTS_SHA256", hashlib.sha256(payload).hexdigest())
     _write_snapshot(tmp_path, pinned, b"{}")
     manifest = json.loads((tmp_path / "dimer-base-manifest.json").read_text())
     manifest["files"].append(
