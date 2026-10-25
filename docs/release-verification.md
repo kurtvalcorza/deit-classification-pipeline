@@ -53,3 +53,8 @@ Copied from the run directory and redacted byte-wise (local run paths replaced b
 | `deit_classification_colab_6c57d9f_colab-cli-t4_default.ipynb` | `2c79ec20bb54a81577dd1ca2303dc1a5b87c081a888e8e80689b14ae32980fc0` | `2c79ec20bb54a81577dd1ca2303dc1a5b87c081a888e8e80689b14ae32980fc0` (unchanged, no local path) |
 | `deit_classification_colab_6c57d9f_colab-cli-t4_default_exec.log` | `758b91efb060357faa226c6612fbc74ad06d4990b9bbc5d6ad05d14859827f6e` | `305600535f27feb2e9edf60a49f837d45d83c465b0fc0ba912a0211555981e68` (2 local-path replacements) |
 | `deit_classification_colab_6c57d9f_colab-cli-t4_default_run_summary.json` | `877a99d5be3b1cacc5467e5f41a2c2c2ca57235de66c319bf9d58211d6cfc4e8` | `877a99d5be3b1cacc5467e5f41a2c2c2ca57235de66c319bf9d58211d6cfc4e8` (unchanged, no local path) |
+
+## Tier C wording revision (2026-10-25)
+
+**Tier C wording revision (2026-10-25, branch `fix/deit-classification-tier-c-2026-10-25`, code commit `94d6156`).** Markdown, header and metadata only: pretraining-overlap statement (DAT9), the hosted-timing sentence, run-labelled numbers (REL13), use notice, `notebook_kind` and IEEE references. The regenerated notebook blob `3042bb3834499a3e6c5dd2ac30efa7c9abe5ea00` is **Candidate** and its hosted runs are **pending** (REL14); the 2026-10-24 Colab T4 run of `6c57d9f` is evidence for blob `6d45ab55` only.
+
