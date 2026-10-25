@@ -377,7 +377,7 @@ def test_only_the_uv_install_and_router_cells_run_in_the_kernel():
     code = [_source(c) for c in nb["cells"] if c["cell_type"] == "code"]
     kernel = [c for c in code if "# dimer: kernel cell" in c]
     assert len(kernel) == 2 and "--require-hashes" in kernel[0] and "--managed-python" in kernel[0]
-    assert nb["metadata"]["dimer"]["notebook_spec"] == "2.2"
+    assert nb["metadata"]["dimer"]["notebook_spec"] == "2.5"
 
 
 def test_review_prose_is_gone_and_the_guided_layer_is_present():

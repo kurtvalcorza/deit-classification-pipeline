@@ -1,6 +1,6 @@
 """Static release-asset validation for the DeiT-Small image-classification DIMER pipeline.
 
-Checks the STANDALONE tutorial notebook (DIMER Notebook Specification 2.2 §4), the tutorial
+Checks the STANDALONE tutorial notebook (DIMER Notebook Specification 2.5 §4), the tutorial
 registry, model card (DIMER Model Card Specification 1.2), README, STATUS.md and weight documentation
 for source conformance and cross-document identity consistency, the snapshot pin state, and runs the
 generator parity checks (PAR1–PAR3).
@@ -153,7 +153,7 @@ FORBIDDEN_OUTSIDE_MODULE = (
 # ---------------------------------------------------------------------------
 
 # 2.2 since 2026-10-04 (DEIT-M1): the tutorial runs in the uv isolated environment (generator /2.1), no in-kernel install.
-NOTEBOOK_SPEC = "2.2"
+NOTEBOOK_SPEC = "2.5"
 # Learner-facing text that must not come back (review 2026-10-02).
 STALE_MARKDOWN = (
     "installed directly — there is no repository clone",  # DEIT-M1
