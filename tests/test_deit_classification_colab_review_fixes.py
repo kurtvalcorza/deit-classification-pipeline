@@ -353,7 +353,7 @@ def test_byod_refusals_name_the_rule_and_the_field(notebook_run, tmp_path, monke
     ns, run = notebook_run
     tar = tmp_path / "mine.tar"
     tar.write_bytes(b"not a zip")
-    with pytest.raises(ValueError, match=r"is not a \.zip: the dataset must be a directory or a \.zip"):
+    with pytest.raises(ValueError, match=r"not a \.zip: the dataset must be a directory or a \.zip"):
         run(13, USE_BYOD_DATASET="True", BYOD_DATASET_PATH=repr(str(tar)))
     one_class = tmp_path / "one"
     (one_class / "cat").mkdir(parents=True)
@@ -363,9 +363,9 @@ def test_byod_refusals_name_the_rule_and_the_field(notebook_run, tmp_path, monke
     with pytest.raises(ValueError, match=r"at least 2 class folders.*3 loose top-level image\(s\); move them into class folders"):
         run(13, USE_BYOD_DATASET="True", BYOD_DATASET_PATH=repr(str(one_class)))
     monkeypatch.setitem(sys.modules, "google.colab", None)  # no Colab: the import fails as on Kaggle or local Jupyter
-    with pytest.raises(FileNotFoundError, match="BYOD_DATASET_PATH is empty and this runtime has no Colab upload dialog"):
+    with pytest.raises(ValueError, match="BYOD_DATASET_PATH is empty and this runtime has no Colab upload dialog"):
         run(13, USE_BYOD_DATASET="True")
-    with pytest.raises(FileNotFoundError, match="BYOD_IMAGE_PATH is empty"):
+    with pytest.raises(ValueError, match="BYOD_IMAGE_PATH is empty"):
         run(13, USE_BYOD_IMAGE="True")
 
 
