@@ -87,6 +87,8 @@ Evidence files for the 2026-10-25 default run of blob `6880a987`, copied from th
 
 **Tier C wording revision (2026-10-25, branch `fix/deit-classification-tier-c-2026-10-25`, code commit `94d6156`).** Markdown, header and metadata only: pretraining-overlap statement (DAT9), the hosted-timing sentence, run-labelled numbers (REL13), use notice, `notebook_kind`, IEEE references and the DIMER Notebook Specification 2.5 declaration. The regenerated notebook blob `c9f866b04ad5ac9c7948ff3703f2b79dadc11ba0` is **Candidate**; its default path ran in one pass with no restart and 0 errors on a fresh Colab Tesla T4 on 2026-10-25 (Colab CLI, 16/16 code cells, 152.5 s; zero-shot 59/60, fine-tuned 60/60, at ceiling; adapter reload equivalent; record above). This PR's run covers the default path only. The Section 6 worked answer quotes degenerate-probe scores that differ from this run (see the record). Remaining gates: REL12 (a hosted BYOD run with one accepted and one refused input) and REL2 (a browser run of the interactive journeys). The 2026-10-24 Colab T4 run of `6c57d9f` is evidence for blob `6d45ab55` only and is history (REL14).
 
+The current blob `12c76cbf` (code commit `627fdc3`) shows a refused BYOD input as one `Refused: <file>: <reason>` line with no traceback, removes the earlier run's results and `outputs/` files and stops Run all at that cell, while genuine failures keep their traceback (NOTEBOOK_SPEC DAT19/DAT20); its hosted Colab T4 runs (the default path and a scripted refusal, `USE_BYOD_IMAGE=True;BYOD_IMAGE_PATH='/etc/hostname'`) are pending, and the hosted runs of earlier blobs, including `da256e5e8635`, are history for it (REL14).
+
 
 ## Historical wording revision (2026-10-26)
 
