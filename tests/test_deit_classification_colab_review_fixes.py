@@ -377,7 +377,7 @@ def test_only_the_uv_install_and_router_cells_run_in_the_kernel():
     code = [_source(c) for c in nb["cells"] if c["cell_type"] == "code"]
     kernel = [c for c in code if "# dimer: kernel cell" in c]
     assert len(kernel) == 2 and "--require-hashes" in kernel[0] and "--managed-python" in kernel[0]
-    assert nb["metadata"]["dimer"]["notebook_spec"] == "2.2"
+    assert nb["metadata"]["dimer"]["notebook_spec"] == "2.5"
 
 
 def test_review_prose_is_gone_and_the_guided_layer_is_present():
@@ -424,3 +424,26 @@ def test_worker_colab_stubs_have_specs(monkeypatch, real_google):
     finally:
         for name in ("google", "google.colab", "google.colab.files"):
             sys.modules.pop(name, None)  # monkeypatch then restores whatever was there before
+
+
+def test_tier_c_guided_answers_hold_across_every_recorded_hosted_run():
+    # Tier C prose-mismatch fix (2026-10-25): numbers come from the three Colab T4 runs; CPU-only figures stay labelled.
+    text = "\n".join("".join(c["source"]) for c in _notebook()["cells"] if c["cell_type"] == "markdown")
+    for gone in ("`jellyfish` 0.016", "`switch` 0.002", "0.1378, 0.0684", "`truck` 0.547 for the blank image",
+                 "Hosted runs of this revision are pending"):
+        assert gone not in text, gone
+    for quoted in ("blank `face powder` 0.006, `hook` 0.005, `rule` 0.005", "`kite` 0.083, `bald eagle` 0.042, `nematode` 0.029",
+                   "0.1379, 0.0681, 0.0062, 0.0003 and 0.0003 in all four", "`train_seconds` was 15.9, 15.1, 15.1 and 14.4",
+                   "`truck` 0.542 for the blank image", "152.5 s, 93 s, 15.1 s"):
+        assert quoted in text, quoted
+
+
+def test_historical_wording_records_every_hosted_run():
+    # Historical wording (2026-10-26): timings are records of every named hosted run, never expectations, and the
+    # fourth Colab T4 run (blob 6880a987) is named wherever a value is quoted. Fails on PR #4 head 2e1c46d.
+    text = "\n".join("".join(c["source"]) for c in _notebook()["cells"] if c["cell_type"] == "markdown")
+    for gone in ("about 2 to 2.5 minutes", "(about 15 s on a Colab T4)", "the three recorded", "in all three"):
+        assert gone not in text, gone
+    for quoted in ("between 112.3 and 152.5 s of wall time", "blob `6880a987`, 2026-10-25: 112.3 s, 45 s, 14.4 s",
+                   "blob `6880a987` at `78b00d0`", "Your run may take a different time."):
+        assert quoted in text, quoted
