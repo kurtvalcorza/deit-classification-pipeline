@@ -87,6 +87,8 @@ Evidence files for the 2026-10-25 default run of blob `6880a987`, copied from th
 
 **Tier C wording revision (2026-10-25, branch `fix/deit-classification-tier-c-2026-10-25`, code commit `94d6156`).** Markdown, header and metadata only: pretraining-overlap statement (DAT9), the hosted-timing sentence, run-labelled numbers (REL13), use notice, `notebook_kind`, IEEE references and the DIMER Notebook Specification 2.5 declaration. The regenerated notebook blob `c9f866b04ad5ac9c7948ff3703f2b79dadc11ba0` is **Candidate**; its default path ran in one pass with no restart and 0 errors on a fresh Colab Tesla T4 on 2026-10-25 (Colab CLI, 16/16 code cells, 152.5 s; zero-shot 59/60, fine-tuned 60/60, at ceiling; adapter reload equivalent; record above). This PR's run covers the default path only. The Section 6 worked answer quotes degenerate-probe scores that differ from this run (see the record). Remaining gates: REL12 (a hosted BYOD run with one accepted and one refused input) and REL2 (a browser run of the interactive journeys). The 2026-10-24 Colab T4 run of `6c57d9f` is evidence for blob `6d45ab55` only and is history (REL14).
 
+The current blob `12c76cbf` (code commit `627fdc3`) shows a refused BYOD input as one `Refused: <file>: <reason>` line with no traceback, removes the earlier run's results and `outputs/` files and stops Run all at that cell, while genuine failures keep their traceback (NOTEBOOK_SPEC DAT19/DAT20); on 2026-10-29 its default path (16 code cells, exit 0, 0 errors) and its scripted DAT20 refusal (`USE_BYOD_IMAGE=True;BYOD_IMAGE_PATH=/etc/hostname`: exactly one `Refused:` line at cell `deit_classification-33`, no traceback, earlier cells clean, VM released) both passed on a hosted Colab Tesla T4 (Colab CLI `colab exec -f`, not a browser `Run all`). The remaining gates are REL12 (a hosted BYOD run with an accepted input) and REL2 (a browser run of the interactive journeys); earlier blobs' runs are history (REL14).
+
 
 ## Historical wording revision (2026-10-26)
 
@@ -107,3 +109,47 @@ Drift (this run versus the prose's named-run values):
 - Prerequisites timing: the prose gives the four named Colab T4 runs as "between 112.3 and 152.5 s of wall time … 14.4–15.9 s of it the fine-tune". This run took 111.7 s wall (just below that span); its setup, 51 s, and fine-tune, 15.3 s, fall inside the named runs' values.
 
 Rule check: no expectation range, timing promise, run-status sentence or unlabelled run-derived number was found in the notebook prose.
+
+### Hosted Colab T4 runs of blob `12c76cbf` (2026-10-29)
+
+These runs executed the PR head `cc5cb249484889780de4afd01e9f06f4c1047618`, notebook `tutorials/deit_classification_colab.ipynb` blob `12c76cbf24c19dc97dd47d5c444b8a3f0f335862`, fetched at the 40-character SHA and Git-blob verified, with the Colab CLI (`colab exec -f`) on a fresh Colab Tesla T4 session (not a browser `Run all`). Each `run_summary.json` records `verdict` `PASS`, `exec_exit_code` 0, `input_unchanged` true and `stop_verified` true (the VM was released), and the SHA-256 of each executed notebook equals the summary's `executed_sha256`.
+
+**Default path (2026-10-29 01:29:32 UTC start).** Default settings, no overrides; session `suite-deit-cc5cb24-1e84`; wall 112.5 s (`wall_s`); `code_cells` 16, `executed_cells` 14, 0 errors. Retained evidence: [`docs/execution-evidence/2026-10-29/`](execution-evidence/2026-10-29/).
+
+Printed by the default run (verbatim lines from the executed outputs):
+
+```text
+{'verified_files': 4, 'revision': '164deee347853469b97442b3817f22eece80c7e3'}
+{'verdict': 'sample-sanity', 'metrics': [(1, 0.0), (5, 1.0)]}
+method                         correct  accuracy      95% Wilson  balanced
+majority class                   30/60     0.500  [0.377, 0.623]     0.500
+zero-shot ImageNet mapping       59/60     0.983  [0.911, 0.997]     0.983
+untrained two-class head         36/60     0.600  [0.474, 0.714]     0.600
+fine-tuned                       60/60     1.000  [0.940, 1.000]     1.000
+{'correct': 60, 'n': 60, 'accuracy': 1.0, 'wilson_95': [0.9398, 1.0], 'balanced_accuracy': 1.0}
+```
+
+**DAT20 refusal record (2026-10-29, blob `12c76cbf`).** Overrides, set by `--set` on a copy of the blob: `USE_BYOD_IMAGE` `False` → `True` and `BYOD_IMAGE_PATH` `""` → `'/etc/hostname'` (the run copy differs from the blob in exactly those 2 source lines). The suite cut the run copy right after the refusing cell `deit_classification-33`, dropping 1 cells (0 of them code cells), which reproduces `Run all` stopping at the first error; the cut copy is `run_copy.ipynb`, SHA-256 `4e2b048e231630f8d8d570d4d06c55746df177784f1c211c6fd77b165ed0b4e0` (Git blob `5a7df35a`), equal to the summary's `run_copy_sha256`. The cut copy's earlier code cells completed without an error output; the refusing cell's only error output has `ename` `IsolatedCellRefusal` and no traceback, and its output holds exactly one `Refused:` line:
+
+```text
+Refused: hostname: not an image PIL can open (cannot identify image file '/etc/hostname'); set BYOD_IMAGE_PATH to a .png, .jpg, .bmp or .webp file and run this cell again (the earlier results of this session and their outputs/ files were removed).
+```
+
+This run says nothing about the 1 cut cells, which did not run in it. Session `suite-deit-cc5cb24-1e84`, wall 165.3 s. Retained evidence: [`docs/execution-evidence/2026-10-29/`](execution-evidence/2026-10-29/).
+
+**Local-path redaction.** Local paths were replaced byte-wise by `<local-run-dir>` (and the Colab CLI install path by `<colab-cli-tool-dir>/`) before the first commit; each executed notebook and run copy was checked against its `run_summary.json` before any edit.
+
+| File (under `docs/execution-evidence/2026-10-29/`) | Captured SHA-256 | Committed SHA-256 |
+|---|---|---|
+| `deit_classification_colab_cc5cb24_colab-cli-t4_default.ipynb` | `b89e2448700d9f95feaffdd71ac4bdc3722ee89ffce61e96942973506302fce3` | `b89e2448700d9f95feaffdd71ac4bdc3722ee89ffce61e96942973506302fce3` (unchanged, no local path) |
+| `deit_classification_colab_cc5cb24_colab-cli-t4_default_exec.log` | `f48337e83134ac16f5109d8a5c51610be6a45a494292d13b1136a53da32e402f` | `e57a44568dc436d8c6c231bed3b8122351e825d9c491499c065e8f8e08f1c5c1` (2 local-path replacements) |
+| `deit_classification_colab_cc5cb24_colab-cli-t4_default_run_summary.json` | `85ddd336bdb385b6ef126b89363b8cc83e893d8d0ccce3a24d6d3089a5567498` | `85ddd336bdb385b6ef126b89363b8cc83e893d8d0ccce3a24d6d3089a5567498` (unchanged, no local path) |
+
+| File (under `docs/execution-evidence/2026-10-29/`) | Captured SHA-256 | Committed SHA-256 |
+|---|---|---|
+| `deit_classification_colab_cc5cb24_colab-cli-t4_refusal.ipynb` | `c465e4bd9370077a063dcf18a06e869a6ea49416102413c725719f2ffbdac89b` | `c465e4bd9370077a063dcf18a06e869a6ea49416102413c725719f2ffbdac89b` (unchanged, no local path) |
+| `deit_classification_colab_cc5cb24_colab-cli-t4_refusal_exec.log` | `14a6f675fcdc6010ecf98fa548a7f95b76123775341b4bab2aac1980ceff2164` | `e38e4458e68737cca41b62b05b78b56ed2195b3b6d9b04dd821e6f6499028ef6` (2 local-path replacements) |
+| `deit_classification_colab_cc5cb24_colab-cli-t4_refusal_run_summary.json` | `e9741cd677aacabb204fbd9f09623e445013c0fa1090e211038ef56a402418e0` | `e9741cd677aacabb204fbd9f09623e445013c0fa1090e211038ef56a402418e0` (unchanged, no local path) |
+| `deit_classification_colab_cc5cb24_colab-cli-t4_refusal_run_copy.ipynb` | `4e2b048e231630f8d8d570d4d06c55746df177784f1c211c6fd77b165ed0b4e0` | `4e2b048e231630f8d8d570d4d06c55746df177784f1c211c6fd77b165ed0b4e0` (unchanged, no local path) |
+
+Not exercised by these runs: an accepted BYOD input (REL12) and a browser `Run all` of the interactive journeys (REL2).
